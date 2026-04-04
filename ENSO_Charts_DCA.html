@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Washington D.C. — ENSO Weather Charts</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d0d0d;
+  color: #eee;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+  gap: 32px;
+  min-height: 100vh;
+}
+
+.chart-card {
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 22px 22px 16px;
+  width: min(960px, 100%);
+}
+
+.chart-title {
+  text-align: center;
+  font-size: 17px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.chart-subtitle {
+  text-align: center;
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 14px;
+  min-height: 16px;
+}
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  background: #1e1e1e;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 13px 16px;
+  margin-bottom: 6px;
+}
+
+.ctrl-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.ctrl-year-display {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ccc;
+  margin-bottom: 8px;
+}
+
+/* Dual-range slider */
+.range-wrap {
+  flex: 1;
+  min-width: 220px;
+}
+
+.dual-slider {
+  position: relative;
+  height: 22px;
+  display: flex;
+  align-items: center;
+}
+
+.dual-slider .track-bg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: 4px;
+  border-radius: 2px;
+  background: #3a3a3a;
+}
+
+.dual-slider .track-fill {
+  position: absolute;
+  height: 4px;
+  border-radius: 2px;
+  background: #5B9BD5;
+  pointer-events: none;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.dual-slider input[type=range] {
+  position: absolute;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+  outline: none;
+  height: 0;
+}
+
+.dual-slider input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #5B9BD5;
+  border: 2px solid #fff;
+  cursor: ew-resize;
+  pointer-events: all;
+  box-shadow: 0 1px 4px rgba(0,0,0,.6);
+  transition: background .15s;
+}
+.dual-slider input[type=range]::-webkit-slider-thumb:hover { background: #7ab4e8; }
+.dual-slider input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #5B9BD5;
+  border: 2px solid #fff;
+  cursor: ew-resize;
+  pointer-events: all;
+}
+
+/* Buttons */
+.btn-group { display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+
+.btn {
+  padding: 7px 13px;
+  border-radius: 6px;
+  border: 1px solid #3a3a3a;
+  background: #252525;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .14s, border-color .14s, color .14s;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.btn:hover { background: #333; border-color: #555; color: #fff; }
+.btn.active { background: #1e3a60; border-color: #5B9BD5; color: #fff; }
+
+.btn-export {
+  border-color: #27AE60;
+  color: #27AE60;
+  background: #0f1f14;
+}
+.btn-export:hover { background: #27AE60; color: #fff; border-color: #27AE60; }
+
+/* Legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 6px;
+  min-height: 38px;
+}
+
+.leg-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #bbb;
+  cursor: pointer;
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: background .1s, border-color .1s;
+  user-select: none;
+}
+.leg-item:hover { background: #222; border-color: #333; }
+.leg-item.isolated { border-color: #5B9BD5; background: #1a2a3a; color: #fff; }
+.leg-item.no-click { cursor: default; }
+.leg-item.no-click:hover { background: transparent; border-color: transparent; }
+
+.leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.leg-diamond { width: 9px; height: 9px; transform: rotate(45deg); flex-shrink: 0; background: #aaa; }
+.leg-divider { width: 1px; background: #2a2a2a; align-self: stretch; margin: 0 3px; }
+
+.hint {
+  text-align: center;
+  font-size: 11px;
+  color: #444;
+  margin-top: 7px;
+}
+</style>
+</head>
+<body>
+
+<div class="chart-card">
+  <div class="chart-title" id="title-temp"></div>
+  <div class="chart-subtitle" id="sub-temp"></div>
+  <div class="controls">
+    <div class="range-wrap">
+      <div class="ctrl-label">Year Range Filter</div>
+      <div class="ctrl-year-display">
+        <span id="yr-min-temp"></span>
+        <span id="yr-max-temp"></span>
+      </div>
+      <div class="dual-slider">
+        <div class="track-bg"></div>
+        <div class="track-fill" id="fill-temp"></div>
+        <input type="range" id="rlo-temp">
+        <input type="range" id="rhi-temp">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn" id="dbtn-temp"   onclick="toggleDecade('temp')">🎨 Color by Decade</button>
+      <button class="btn btn-export"        onclick="exportPNG('temp')">⬇ Export PNG</button>
+      <button class="btn"                   onclick="resetAll('temp')">↺ Reset</button>
+    </div>
+  </div>
+  <div id="plt-temp"></div>
+  <div class="legend" id="leg-temp"></div>
+  <div class="hint">Click any dot or legend label to isolate that phase &nbsp;·&nbsp; Double-click chart to clear</div>
+</div>
+
+<div class="chart-card">
+  <div class="chart-title" id="title-snow"></div>
+  <div class="chart-subtitle" id="sub-snow"></div>
+  <div class="controls">
+    <div class="range-wrap">
+      <div class="ctrl-label">Year Range Filter</div>
+      <div class="ctrl-year-display">
+        <span id="yr-min-snow"></span>
+        <span id="yr-max-snow"></span>
+      </div>
+      <div class="dual-slider">
+        <div class="track-bg"></div>
+        <div class="track-fill" id="fill-snow"></div>
+        <input type="range" id="rlo-snow">
+        <input type="range" id="rhi-snow">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn" id="dbtn-snow"   onclick="toggleDecade('snow')">🎨 Color by Decade</button>
+      <button class="btn btn-export"        onclick="exportPNG('snow')">⬇ Export PNG</button>
+      <button class="btn"                   onclick="resetAll('snow')">↺ Reset</button>
+    </div>
+  </div>
+  <div id="plt-snow"></div>
+  <div class="legend" id="leg-snow"></div>
+  <div class="hint">Click any dot or legend label to isolate that phase &nbsp;·&nbsp; Double-click chart to clear</div>
+</div>
+
+<script>
+const D = {"points": [{"season": "1941-42", "temp": 36.6, "snowfall": 9.8, "enso_code": 6, "start_year": 1941, "decade": "1940s", "x_pos": 5.137, "phase_color": "#E67E22", "decade_color": "#BFEF45"}, {"season": "1942-43", "temp": 36.1, "snowfall": 20.4, "enso_code": 2, "start_year": 1942, "decade": "1940s", "x_pos": 0.9752, "phase_color": "#5B9BD5", "decade_color": "#BFEF45"}, {"season": "1943-44", "temp": 37.2, "snowfall": 8.5, "enso_code": 4, "start_year": 1943, "decade": "1940s", "x_pos": 3.0658, "phase_color": "#27AE60", "decade_color": "#BFEF45"}, {"season": "1944-45", "temp": 34.5, "snowfall": 7.6, "enso_code": 3, "start_year": 1944, "decade": "1940s", "x_pos": 1.9062, "phase_color": "#85C1E9", "decade_color": "#BFEF45"}, {"season": "1945-46", "temp": 36.3, "snowfall": 21.6, "enso_code": 4, "start_year": 1945, "decade": "1940s", "x_pos": 3.129, "phase_color": "#27AE60", "decade_color": "#BFEF45"}, {"season": "1946-47", "temp": 38.2, "snowfall": 20.0, "enso_code": 4, "start_year": 1946, "decade": "1940s", "x_pos": 2.9273, "phase_color": "#27AE60", "decade_color": "#BFEF45"}, {"season": "1947-48", "temp": 34.1, "snowfall": 23.5, "enso_code": 4, "start_year": 1947, "decade": "1940s", "x_pos": 3.2353, "phase_color": "#27AE60", "decade_color": "#BFEF45"}, {"season": "1948-49", "temp": 42.2, "snowfall": 15.8, "enso_code": 4, "start_year": 1948, "decade": "1940s", "x_pos": 3.1966, "phase_color": "#27AE60", "decade_color": "#BFEF45"}, {"season": "1949-50", "temp": 42.8, "snowfall": 3.4, "enso_code": 2, "start_year": 1949, "decade": "1940s", "x_pos": 0.9354, "phase_color": "#5B9BD5", "decade_color": "#BFEF45"}, {"season": "1950-51", "temp": 37.8, "snowfall": 10.2, "enso_code": 3, "start_year": 1950, "decade": "1950s", "x_pos": 2.1661, "phase_color": "#85C1E9", "decade_color": "#F8A5C2"}, {"season": "1951-52", "temp": 40.9, "snowfall": 10.2, "enso_code": 6, "start_year": 1951, "decade": "1950s", "x_pos": 4.9694, "phase_color": "#E67E22", "decade_color": "#F8A5C2"}, {"season": "1952-53", "temp": 40.7, "snowfall": 8.3, "enso_code": 5, "start_year": 1952, "decade": "1950s", "x_pos": 3.8073, "phase_color": "#F4D03F", "decade_color": "#F8A5C2"}, {"season": "1953-54", "temp": 40.1, "snowfall": 18.0, "enso_code": 5, "start_year": 1953, "decade": "1950s", "x_pos": 4.0842, "phase_color": "#F4D03F", "decade_color": "#F8A5C2"}, {"season": "1954-55", "temp": 36.8, "snowfall": 6.6, "enso_code": 3, "start_year": 1954, "decade": "1950s", "x_pos": 2.1524, "phase_color": "#85C1E9", "decade_color": "#F8A5C2"}, {"season": "1955-56", "temp": 36.4, "snowfall": 11.3, "enso_code": 1, "start_year": 1955, "decade": "1950s", "x_pos": -0.0316, "phase_color": "#9B59B6", "decade_color": "#F8A5C2"}, {"season": "1956-57", "temp": 39.5, "snowfall": 14.2, "enso_code": 3, "start_year": 1956, "decade": "1950s", "x_pos": 1.9437, "phase_color": "#85C1E9", "decade_color": "#F8A5C2"}, {"season": "1957-58", "temp": 35.7, "snowfall": 40.4, "enso_code": 7, "start_year": 1957, "decade": "1950s", "x_pos": 5.8907, "phase_color": "#E74C3C", "decade_color": "#F8A5C2"}, {"season": "1958-59", "temp": 35.6, "snowfall": 4.9, "enso_code": 5, "start_year": 1958, "decade": "1950s", "x_pos": 3.9855, "phase_color": "#F4D03F", "decade_color": "#F8A5C2"}, {"season": "1959-60", "temp": 39.5, "snowfall": 24.3, "enso_code": 4, "start_year": 1959, "decade": "1950s", "x_pos": 3.1392, "phase_color": "#27AE60", "decade_color": "#F8A5C2"}, {"season": "1960-61", "temp": 33.0, "snowfall": 40.3, "enso_code": 4, "start_year": 1960, "decade": "1960s", "x_pos": 2.8473, "phase_color": "#27AE60", "decade_color": "#469990"}, {"season": "1961-62", "temp": 35.1, "snowfall": 15.0, "enso_code": 4, "start_year": 1961, "decade": "1960s", "x_pos": 2.9834, "phase_color": "#27AE60", "decade_color": "#469990"}, {"season": "1962-63", "temp": 31.9, "snowfall": 21.4, "enso_code": 4, "start_year": 1962, "decade": "1960s", "x_pos": 2.7719, "phase_color": "#27AE60", "decade_color": "#469990"}, {"season": "1963-64", "temp": 34.7, "snowfall": 33.6, "enso_code": 6, "start_year": 1963, "decade": "1960s", "x_pos": 5.1793, "phase_color": "#E67E22", "decade_color": "#469990"}, {"season": "1964-65", "temp": 36.7, "snowfall": 17.1, "enso_code": 3, "start_year": 1964, "decade": "1960s", "x_pos": 1.8942, "phase_color": "#85C1E9", "decade_color": "#469990"}, {"season": "1965-66", "temp": 36.7, "snowfall": 28.4, "enso_code": 7, "start_year": 1965, "decade": "1960s", "x_pos": 5.8968, "phase_color": "#E74C3C", "decade_color": "#469990"}, {"season": "1966-67", "temp": 37.5, "snowfall": 37.1, "enso_code": 4, "start_year": 1966, "decade": "1960s", "x_pos": 2.8271, "phase_color": "#27AE60", "decade_color": "#469990"}, {"season": "1967-68", "temp": 35.2, "snowfall": 21.4, "enso_code": 4, "start_year": 1967, "decade": "1960s", "x_pos": 3.0915, "phase_color": "#27AE60", "decade_color": "#469990"}, {"season": "1968-69", "temp": 35.9, "snowfall": 9.1, "enso_code": 6, "start_year": 1968, "decade": "1960s", "x_pos": 5.0987, "phase_color": "#E67E22", "decade_color": "#469990"}, {"season": "1969-70", "temp": 34.4, "snowfall": 14.0, "enso_code": 5, "start_year": 1969, "decade": "1960s", "x_pos": 4.0326, "phase_color": "#F4D03F", "decade_color": "#469990"}, {"season": "1970-71", "temp": 36.7, "snowfall": 11.7, "enso_code": 2, "start_year": 1970, "decade": "1970s", "x_pos": 1.2134, "phase_color": "#5B9BD5", "decade_color": "#B48EF0"}, {"season": "1971-72", "temp": 40.1, "snowfall": 16.8, "enso_code": 3, "start_year": 1971, "decade": "1970s", "x_pos": 2.0912, "phase_color": "#85C1E9", "decade_color": "#B48EF0"}, {"season": "1972-73", "temp": 39.4, "snowfall": 0.1, "enso_code": 8, "start_year": 1972, "decade": "1970s", "x_pos": 6.9532, "phase_color": "#922B21", "decade_color": "#B48EF0"}, {"season": "1973-74", "temp": 41.3, "snowfall": 16.7, "enso_code": 1, "start_year": 1973, "decade": "1970s", "x_pos": -0.1427, "phase_color": "#9B59B6", "decade_color": "#B48EF0"}, {"season": "1974-75", "temp": 41.5, "snowfall": 12.8, "enso_code": 3, "start_year": 1974, "decade": "1970s", "x_pos": 1.8199, "phase_color": "#85C1E9", "decade_color": "#B48EF0"}, {"season": "1975-76", "temp": 40.4, "snowfall": 2.2, "enso_code": 2, "start_year": 1975, "decade": "1970s", "x_pos": 1.0719, "phase_color": "#5B9BD5", "decade_color": "#B48EF0"}, {"season": "1976-77", "temp": 33.2, "snowfall": 11.1, "enso_code": 6, "start_year": 1976, "decade": "1970s", "x_pos": 4.7971, "phase_color": "#E67E22", "decade_color": "#B48EF0"}, {"season": "1977-78", "temp": 33.9, "snowfall": 22.7, "enso_code": 6, "start_year": 1977, "decade": "1970s", "x_pos": 5.2378, "phase_color": "#E67E22", "decade_color": "#B48EF0"}, {"season": "1978-79", "temp": 35.5, "snowfall": 37.7, "enso_code": 3, "start_year": 1978, "decade": "1970s", "x_pos": 1.85, "phase_color": "#85C1E9", "decade_color": "#B48EF0"}, {"season": "1979-80", "temp": 39.0, "snowfall": 20.1, "enso_code": 5, "start_year": 1979, "decade": "1970s", "x_pos": 4.1325, "phase_color": "#F4D03F", "decade_color": "#B48EF0"}, {"season": "1980-81", "temp": 38.8, "snowfall": 4.5, "enso_code": 4, "start_year": 1980, "decade": "1980s", "x_pos": 3.1224, "phase_color": "#27AE60", "decade_color": "#C87F3B"}, {"season": "1981-82", "temp": 34.9, "snowfall": 22.5, "enso_code": 4, "start_year": 1981, "decade": "1980s", "x_pos": 3.2338, "phase_color": "#27AE60", "decade_color": "#C87F3B"}, {"season": "1982-83", "temp": 40.8, "snowfall": 27.6, "enso_code": 8, "start_year": 1982, "decade": "1980s", "x_pos": 7.157, "phase_color": "#922B21", "decade_color": "#C87F3B"}, {"season": "1983-84", "temp": 37.3, "snowfall": 8.6, "enso_code": 3, "start_year": 1983, "decade": "1980s", "x_pos": 1.7537, "phase_color": "#85C1E9", "decade_color": "#C87F3B"}, {"season": "1984-85", "temp": 38.0, "snowfall": 10.3, "enso_code": 2, "start_year": 1984, "decade": "1980s", "x_pos": 1.1614, "phase_color": "#5B9BD5", "decade_color": "#C87F3B"}, {"season": "1985-86", "temp": 35.7, "snowfall": 15.4, "enso_code": 4, "start_year": 1985, "decade": "1980s", "x_pos": 2.9129, "phase_color": "#27AE60", "decade_color": "#C87F3B"}, {"season": "1986-87", "temp": 37.1, "snowfall": 31.1, "enso_code": 6, "start_year": 1986, "decade": "1980s", "x_pos": 5.1306, "phase_color": "#E67E22", "decade_color": "#C87F3B"}, {"season": "1987-88", "temp": 36.6, "snowfall": 25.0, "enso_code": 7, "start_year": 1987, "decade": "1980s", "x_pos": 6.081, "phase_color": "#E74C3C", "decade_color": "#C87F3B"}, {"season": "1988-89", "temp": 38.8, "snowfall": 5.7, "enso_code": 1, "start_year": 1988, "decade": "1980s", "x_pos": -0.0457, "phase_color": "#9B59B6", "decade_color": "#C87F3B"}, {"season": "1989-90", "temp": 38.9, "snowfall": 15.3, "enso_code": 3, "start_year": 1989, "decade": "1980s", "x_pos": 2.1435, "phase_color": "#85C1E9", "decade_color": "#C87F3B"}, {"season": "1990-91", "temp": 42.0, "snowfall": 8.1, "enso_code": 4, "start_year": 1990, "decade": "1990s", "x_pos": 2.9352, "phase_color": "#27AE60", "decade_color": "#50C878"}, {"season": "1991-92", "temp": 40.6, "snowfall": 6.6, "enso_code": 7, "start_year": 1991, "decade": "1990s", "x_pos": 6.0285, "phase_color": "#E74C3C", "decade_color": "#50C878"}, {"season": "1992-93", "temp": 37.9, "snowfall": 11.7, "enso_code": 4, "start_year": 1992, "decade": "1990s", "x_pos": 2.9848, "phase_color": "#27AE60", "decade_color": "#50C878"}, {"season": "1993-94", "temp": 34.4, "snowfall": 13.2, "enso_code": 4, "start_year": 1993, "decade": "1990s", "x_pos": 2.8447, "phase_color": "#27AE60", "decade_color": "#50C878"}, {"season": "1994-95", "temp": 39.3, "snowfall": 10.1, "enso_code": 6, "start_year": 1994, "decade": "1990s", "x_pos": 5.143, "phase_color": "#E67E22", "decade_color": "#50C878"}, {"season": "1995-96", "temp": 35.2, "snowfall": 46.0, "enso_code": 3, "start_year": 1995, "decade": "1990s", "x_pos": 2.0824, "phase_color": "#85C1E9", "decade_color": "#50C878"}, {"season": "1996-97", "temp": 41.6, "snowfall": 6.7, "enso_code": 4, "start_year": 1996, "decade": "1990s", "x_pos": 2.815, "phase_color": "#27AE60", "decade_color": "#50C878"}, {"season": "1997-98", "temp": 42.5, "snowfall": 0.1, "enso_code": 8, "start_year": 1997, "decade": "1990s", "x_pos": 6.8335, "phase_color": "#922B21", "decade_color": "#50C878"}, {"season": "1998-99", "temp": 41.1, "snowfall": 11.6, "enso_code": 2, "start_year": 1998, "decade": "1990s", "x_pos": 0.9717, "phase_color": "#5B9BD5", "decade_color": "#50C878"}, {"season": "1999-00", "temp": 40.1, "snowfall": 15.4, "enso_code": 1, "start_year": 1999, "decade": "1990s", "x_pos": 0.1767, "phase_color": "#9B59B6", "decade_color": "#50C878"}, {"season": "2000-01", "temp": 36.1, "snowfall": 7.4, "enso_code": 3, "start_year": 2000, "decade": "2000s", "x_pos": 2.1026, "phase_color": "#85C1E9", "decade_color": "#FF6B6B"}, {"season": "2001-02", "temp": 43.2, "snowfall": 3.2, "enso_code": 4, "start_year": 2001, "decade": "2000s", "x_pos": 2.9879, "phase_color": "#27AE60", "decade_color": "#FF6B6B"}, {"season": "2002-03", "temp": 34.0, "snowfall": 40.4, "enso_code": 6, "start_year": 2002, "decade": "2000s", "x_pos": 4.8141, "phase_color": "#E67E22", "decade_color": "#FF6B6B"}, {"season": "2003-04", "temp": 35.9, "snowfall": 12.4, "enso_code": 4, "start_year": 2003, "decade": "2000s", "x_pos": 2.8635, "phase_color": "#27AE60", "decade_color": "#FF6B6B"}, {"season": "2004-05", "temp": 38.5, "snowfall": 12.5, "enso_code": 5, "start_year": 2004, "decade": "2000s", "x_pos": 4.0674, "phase_color": "#F4D03F", "decade_color": "#FF6B6B"}, {"season": "2005-06", "temp": 39.3, "snowfall": 13.6, "enso_code": 3, "start_year": 2005, "decade": "2000s", "x_pos": 2.1404, "phase_color": "#85C1E9", "decade_color": "#FF6B6B"}, {"season": "2006-07", "temp": 38.6, "snowfall": 9.5, "enso_code": 5, "start_year": 2006, "decade": "2000s", "x_pos": 4.0268, "phase_color": "#F4D03F", "decade_color": "#FF6B6B"}, {"season": "2007-08", "temp": 40.9, "snowfall": 4.9, "enso_code": 1, "start_year": 2007, "decade": "2000s", "x_pos": -0.133, "phase_color": "#9B59B6", "decade_color": "#FF6B6B"}, {"season": "2008-09", "temp": 37.2, "snowfall": 7.5, "enso_code": 3, "start_year": 2008, "decade": "2000s", "x_pos": 1.9795, "phase_color": "#85C1E9", "decade_color": "#FF6B6B"}, {"season": "2009-10", "temp": 35.8, "snowfall": 56.1, "enso_code": 7, "start_year": 2009, "decade": "2000s", "x_pos": 6.1419, "phase_color": "#E74C3C", "decade_color": "#FF6B6B"}, {"season": "2010-11", "temp": 36.6, "snowfall": 10.1, "enso_code": 1, "start_year": 2010, "decade": "2010s", "x_pos": -0.2208, "phase_color": "#9B59B6", "decade_color": "#00CED1"}, {"season": "2011-12", "temp": 43.3, "snowfall": 2.0, "enso_code": 2, "start_year": 2011, "decade": "2010s", "x_pos": 0.8636, "phase_color": "#5B9BD5", "decade_color": "#00CED1"}, {"season": "2012-13", "temp": 41.3, "snowfall": 3.1, "enso_code": 4, "start_year": 2012, "decade": "2010s", "x_pos": 3.0849, "phase_color": "#27AE60", "decade_color": "#00CED1"}, {"season": "2013-14", "temp": 37.4, "snowfall": 32.0, "enso_code": 4, "start_year": 2013, "decade": "2010s", "x_pos": 2.9686, "phase_color": "#27AE60", "decade_color": "#00CED1"}, {"season": "2014-15", "temp": 36.5, "snowfall": 18.3, "enso_code": 5, "start_year": 2014, "decade": "2010s", "x_pos": 4.0296, "phase_color": "#F4D03F", "decade_color": "#00CED1"}, {"season": "2015-16", "temp": 42.0, "snowfall": 22.2, "enso_code": 8, "start_year": 2015, "decade": "2010s", "x_pos": 6.7614, "phase_color": "#922B21", "decade_color": "#00CED1"}, {"season": "2016-17", "temp": 43.9, "snowfall": 3.4, "enso_code": 3, "start_year": 2016, "decade": "2010s", "x_pos": 2.0344, "phase_color": "#85C1E9", "decade_color": "#00CED1"}, {"season": "2017-18", "temp": 40.1, "snowfall": 7.8, "enso_code": 3, "start_year": 2017, "decade": "2010s", "x_pos": 1.8199, "phase_color": "#85C1E9", "decade_color": "#00CED1"}, {"season": "2018-19", "temp": 41.0, "snowfall": 16.9, "enso_code": 5, "start_year": 2018, "decade": "2010s", "x_pos": 3.902, "phase_color": "#F4D03F", "decade_color": "#00CED1"}, {"season": "2019-20", "temp": 42.8, "snowfall": 0.6, "enso_code": 5, "start_year": 2019, "decade": "2010s", "x_pos": 3.7654, "phase_color": "#F4D03F", "decade_color": "#00CED1"}, {"season": "2020-21", "temp": 39.3, "snowfall": 5.4, "enso_code": 2, "start_year": 2020, "decade": "2020s", "x_pos": 1.0273, "phase_color": "#5B9BD5", "decade_color": "#FFA07A"}, {"season": "2021-22", "temp": 41.6, "snowfall": 13.2, "enso_code": 2, "start_year": 2021, "decade": "2020s", "x_pos": 0.7819, "phase_color": "#5B9BD5", "decade_color": "#FFA07A"}, {"season": "2022-23", "temp": 44.0, "snowfall": 0.4, "enso_code": 2, "start_year": 2022, "decade": "2020s", "x_pos": 1.1638, "phase_color": "#5B9BD5", "decade_color": "#FFA07A"}, {"season": "2023-24", "temp": 43.2, "snowfall": 8.0, "enso_code": 7, "start_year": 2023, "decade": "2020s", "x_pos": 6.0822, "phase_color": "#E74C3C", "decade_color": "#FFA07A"}, {"season": "2024-25", "temp": 39.0, "snowfall": 14.9, "enso_code": 4, "start_year": 2024, "decade": "2020s", "x_pos": 3.1663, "phase_color": "#27AE60", "decade_color": "#FFA07A"}, {"season": "2025-26", "temp": 35.6, "snowfall": 10.6, "enso_code": 4, "start_year": 2025, "decade": "2020s", "x_pos": 3.1001, "phase_color": "#27AE60", "decade_color": "#FFA07A"}], "phases": [{"code": 1, "label_br": "Strong<br>La Niña", "label": "Strong La Niña", "color": "#9B59B6", "x_center": 0}, {"code": 2, "label_br": "Moderate<br>La Niña", "label": "Moderate La Niña", "color": "#5B9BD5", "x_center": 1}, {"code": 3, "label_br": "Weak<br>La Niña", "label": "Weak La Niña", "color": "#85C1E9", "x_center": 2}, {"code": 4, "label_br": "Neutral", "label": "Neutral", "color": "#27AE60", "x_center": 3}, {"code": 5, "label_br": "Weak<br>El Niño", "label": "Weak El Niño", "color": "#F4D03F", "x_center": 4}, {"code": 6, "label_br": "Moderate<br>El Niño", "label": "Moderate El Niño", "color": "#E67E22", "x_center": 5}, {"code": 7, "label_br": "Strong<br>El Niño", "label": "Strong El Niño", "color": "#E74C3C", "x_center": 6}, {"code": 8, "label_br": "Super<br>El Niño", "label": "Super El Niño", "color": "#922B21", "x_center": 7}], "decades": [{"label": "1940s", "color": "#BFEF45"}, {"label": "1950s", "color": "#F8A5C2"}, {"label": "1960s", "color": "#469990"}, {"label": "1970s", "color": "#B48EF0"}, {"label": "1980s", "color": "#C87F3B"}, {"label": "1990s", "color": "#50C878"}, {"label": "2000s", "color": "#FF6B6B"}, {"label": "2010s", "color": "#00CED1"}, {"label": "2020s", "color": "#FFA07A"}], "city_name": "Washington D.C.", "min_year": 1941, "max_year": 2025};
+
+// ── State ───────────────────────────────────────────────────────────────────
+const ST = {
+  temp: { lo: D.min_year, hi: D.max_year, decade: false, iso: null, iso_decade: null },
+  snow: { lo: D.min_year, hi: D.max_year, decade: false, iso: null, iso_decade: null },
+};
+
+const N_PHASES = D.phases.length;
+const Y_FIELD  = { temp: 'temp', snow: 'snowfall' };
+const Y_LABEL  = { temp: 'Temperature (°F)', snow: 'Snowfall (in)' };
+const TITLES   = {
+  temp: `${D.city_name} — DJF Mean Temperature by ENSO Phase`,
+  snow: `${D.city_name} — Seasonal Snowfall by ENSO Phase`,
+};
+
+// ── Opacity logic ────────────────────────────────────────────────────────────
+function opacity(pt, cid) {
+  const s = ST[cid];
+  const inR = pt.start_year >= s.lo && pt.start_year <= s.hi;
+  const inP = s.decade
+    ? (s.iso_decade === null || pt.decade === s.iso_decade)
+    : (s.iso        === null || pt.enso_code === s.iso);
+  if ( inR &&  inP) return 0.88;
+  if ( inR && !inP) return 0.10;
+  if (!inR &&  inP) return 0.15;
+  return 0.04;
+}
+
+function color(pt, cid) {
+  return ST[cid].decade ? pt.decade_color : pt.phase_color;
+}
+
+// ── Stats helpers ────────────────────────────────────────────────────────────
+function filteredPts(cid) {
+  const s = ST[cid];
+  return D.points.filter(p => p.start_year >= s.lo && p.start_year <= s.hi);
+}
+
+function phaseStats(cid) {
+  const yf  = Y_FIELD[cid];
+  const fps = filteredPts(cid);
+  const out = {};
+  D.phases.forEach(ph => {
+    const vals = fps.filter(p => p.enso_code === ph.code).map(p => p[yf]);
+    out[ph.code] = {
+      mean:  vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null,
+      count: vals.length,
+    };
+  });
+  return out;
+}
+
+// ── Annotations ─────────────────────────────────────────────────────────────
+function makeAnnotations(cid) {
+  const stats = phaseStats(cid);
+  const ann = D.phases.map(ph => ({
+    x: ph.x_center, y: -0.135, xref:'x', yref:'paper',
+    text: `n=${stats[ph.code].count}`,
+    showarrow: false,
+    font: { size: 10, color: '#666' },
+  }));
+  ann.push(
+    { x:1.0, y:-0.185, xref:'x', yref:'paper', text:'<b>LA NIÑA</b>',
+      font:{color:'#85C1E9',size:13}, showarrow:false },
+    { x:5.5, y:-0.185, xref:'x', yref:'paper', text:'<b>EL NIÑO</b>',
+      font:{color:'#E74C3C',size:13}, showarrow:false },
+  );
+  return ann;
+}
+
+// ── Initial chart build ──────────────────────────────────────────────────────
+function buildChart(cid) {
+  const yf     = Y_FIELD[cid];
+  const stats  = phaseStats(cid);
+  const traces = [];
+
+  // Dot traces — one per phase
+  D.phases.forEach(ph => {
+    const pts = D.points.filter(p => p.enso_code === ph.code);
+    traces.push({
+      type:'scatter', mode:'markers',
+      x: pts.map(p => p.x_pos),
+      y: pts.map(p => p[yf]),
+      marker: {
+        color:   pts.map(p => color(p, cid)),
+        opacity: pts.map(p => opacity(p, cid)),
+        size: 9,
+        line: { width:0.5, color:'rgba(0,0,0,.25)' },
+      },
+      customdata: pts.map(p => [p.season, p[yf], p.decade]),
+      hovertemplate: '<b>%{customdata[0]}</b><br>' + Y_LABEL[cid] + ': %{customdata[1]}<extra></extra>',
+      showlegend: false,
+      _phase: ph.code,
+    });
+  });
+
+  // Diamond mean traces — one per phase
+  D.phases.forEach(ph => {
+    const m = stats[ph.code].mean;
+    traces.push({
+      type:'scatter', mode:'markers',
+      x: [ph.x_center],
+      y: [m],
+      marker: {
+        symbol:'diamond', size:16,
+        color: ph.color,
+        line: { width:2, color:'white' },
+        opacity: 1,
+      },
+      customdata: [[ph.label, m !== null ? m.toFixed(1) : '—']],
+      hovertemplate: '<b>%{customdata[0]}</b><br>Phase mean: %{customdata[1]}<extra></extra>',
+      showlegend: false,
+      _diamond: true,
+      _phase: ph.code,
+    });
+  });
+
+  const layout = {
+    paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'#111',
+    font: { color:'#ddd', family:'Arial' },
+    xaxis: {
+      tickmode:'array',
+      tickvals: D.phases.map(p=>p.x_center),
+      ticktext: D.phases.map(p=>p.label_br),
+      tickfont: { size:11, color:'#bbb' },
+      showgrid:false, zeroline:false,
+      range: [-0.6, N_PHASES-0.4],
+    },
+    yaxis: {
+      title: { text:Y_LABEL[cid], font:{size:13} },
+      gridcolor:'rgba(255,255,255,.06)',
+      zeroline:false,
+    },
+    annotations: makeAnnotations(cid),
+    hoverlabel: { bgcolor:'#1e1e1e', font:{color:'#fff'}, bordercolor:'#444' },
+    margin: { l:65, r:20, t:10, b:110 },
+    showlegend: false,
+    height: 500,
+  };
+
+  Plotly.newPlot(`plt-${cid}`, traces, layout, { responsive:true, displayModeBar:false });
+
+  // Click → isolate phase or decade depending on mode
+  document.getElementById(`plt-${cid}`).on('plotly_click', ev => {
+    const tr = ev.points[0].data;
+    if (tr._diamond) return;
+    if (ST[cid].decade) {
+      const clickedDecade = ev.points[0].customdata[2];
+      ST[cid].iso_decade = ST[cid].iso_decade === clickedDecade ? null : clickedDecade;
+    } else {
+      ST[cid].iso = ST[cid].iso === tr._phase ? null : tr._phase;
+    }
+    refresh(cid);
+  });
+
+  // Double-click → clear isolation
+  document.getElementById(`plt-${cid}`).on('plotly_doubleclick', () => {
+    ST[cid].iso = null;
+    refresh(cid);
+    return false;
+  });
+}
+
+// ── Refresh (after any state change) ────────────────────────────────────────
+function refresh(cid) {
+  const yf    = Y_FIELD[cid];
+  const stats = phaseStats(cid);
+  const div   = document.getElementById(`plt-${cid}`);
+
+  // Update dot opacities + colours
+  const opArr = [], colArr = [];
+  D.phases.forEach(ph => {
+    const pts = D.points.filter(p => p.enso_code === ph.code);
+    opArr.push(pts.map(p => opacity(p, cid)));
+    colArr.push(pts.map(p => color(p, cid)));
+  });
+  Plotly.restyle(div,
+    { 'marker.opacity': opArr, 'marker.color': colArr },
+    [...Array(N_PHASES).keys()]
+  );
+
+  // Update diamond y-values (filtered mean)
+  const diamY = D.phases.map(ph => [stats[ph.code].mean]);
+  Plotly.restyle(div, { y: diamY },
+    D.phases.map((_,i) => i + N_PHASES)
+  );
+
+  // Update n= annotations
+  Plotly.relayout(div, { annotations: makeAnnotations(cid) });
+
+  updateSubtitle(cid);
+  buildLegend(cid);
+}
+
+// ── Subtitle ────────────────────────────────────────────────────────────────
+function updateSubtitle(cid) {
+  const s = ST[cid];
+  const n = filteredPts(cid).length;
+  const full = s.lo === D.min_year && s.hi === D.max_year;
+  const rangeStr = full
+    ? `${D.min_year}–${D.max_year + 1}  ·  ${n} seasons`
+    : `Filtered ${s.lo}–${s.hi + 1}  ·  ${n} of ${D.points.length} seasons`;
+  document.getElementById(`sub-${cid}`).textContent = rangeStr;
+}
+
+// ── Legend ───────────────────────────────────────────────────────────────────
+function buildLegend(cid) {
+  const el = document.getElementById(`leg-${cid}`);
+  el.innerHTML = '';
+
+  if (ST[cid].decade) {
+    const present = [...new Set(D.points.map(p=>p.decade))].sort();
+    present.forEach(d => {
+      const dc   = D.decades.find(x=>x.label===d)?.color ?? '#888';
+      const item = Object.assign(document.createElement('div'), { className:'leg-item' });
+      if (ST[cid].iso_decade === d) item.classList.add('isolated');
+      item.innerHTML = `<div class="leg-dot" style="background:${dc}"></div>${d}`;
+      item.onclick = () => {
+        ST[cid].iso_decade = ST[cid].iso_decade === d ? null : d;
+        refresh(cid);
+      };
+      el.appendChild(item);
+    });
+  } else {
+    D.phases.forEach(ph => {
+      const item = Object.assign(document.createElement('div'), { className:'leg-item' });
+      if (ST[cid].iso === ph.code) item.classList.add('isolated');
+      item.innerHTML = `<div class="leg-dot" style="background:${ph.color}"></div>${ph.label}`;
+      item.onclick = () => {
+        ST[cid].iso = ST[cid].iso === ph.code ? null : ph.code;
+        refresh(cid);
+      };
+      el.appendChild(item);
+    });
+    const div = Object.assign(document.createElement('div'), { className:'leg-divider' });
+    el.appendChild(div);
+    const mi = Object.assign(document.createElement('div'), { className:'leg-item no-click' });
+    mi.innerHTML = `<div class="leg-diamond"></div>Phase mean`;
+    el.appendChild(mi);
+  }
+}
+
+// ── Dual-range slider ─────────────────────────────────────────────────────────
+function initSlider(cid) {
+  const rlo  = document.getElementById(`rlo-${cid}`);
+  const rhi  = document.getElementById(`rhi-${cid}`);
+  const fill = document.getElementById(`fill-${cid}`);
+  const lblL = document.getElementById(`yr-min-${cid}`);
+  const lblR = document.getElementById(`yr-max-${cid}`);
+
+  [rlo, rhi].forEach(r => {
+    r.min = D.min_year; r.max = D.max_year;
+  });
+  rlo.value = D.min_year;
+  rhi.value = D.max_year;
+
+  function sync() {
+    let lo = parseInt(rlo.value), hi = parseInt(rhi.value);
+    const GAP = 5;
+    if (lo > hi - GAP) { lo = hi - GAP; rlo.value = lo; }
+    if (hi < lo + GAP) { hi = lo + GAP; rhi.value = hi; }
+    const span  = D.max_year - D.min_year;
+    const leftP = ((lo - D.min_year) / span) * 100;
+    const wP    = ((hi - lo) / span) * 100;
+    fill.style.left  = leftP + '%';
+    fill.style.width = wP    + '%';
+    lblL.textContent = lo;
+    lblR.textContent = hi;
+    ST[cid].lo = lo;
+    ST[cid].hi = hi;
+    refresh(cid);
+  }
+
+  rlo.addEventListener('input', sync);
+  rhi.addEventListener('input', sync);
+  sync();
+}
+
+// ── Toggle decade mode ────────────────────────────────────────────────────────
+function toggleDecade(cid) {
+  ST[cid].decade = !ST[cid].decade;
+  if (!ST[cid].decade) ST[cid].iso_decade = null;
+  document.getElementById(`dbtn-${cid}`).classList.toggle('active', ST[cid].decade);
+  refresh(cid);
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetAll(cid) {
+  ST[cid] = { lo:D.min_year, hi:D.max_year, decade:false, iso:null, iso_decade:null };
+  document.getElementById(`rlo-${cid}`).value = D.min_year;
+  document.getElementById(`rhi-${cid}`).value = D.max_year;
+  document.getElementById(`dbtn-${cid}`).classList.remove('active');
+  initSlider(cid);
+  refresh(cid);
+}
+
+// ── Export PNG ────────────────────────────────────────────────────────────────
+function exportPNG(cid) {
+  const s    = ST[cid];
+  const city = D.city_name.replace(/[^a-z0-9]/gi,'_');
+  const rng  = (s.lo===D.min_year && s.hi===D.max_year) ? '' : `_${s.lo}-${s.hi}`;
+  Plotly.downloadImage(`plt-${cid}`, {
+    format:'png', width:1600, height:900,
+    filename:`ENSO_${cid}_${city}${rng}`,
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  ['temp','snow'].forEach(cid => {
+    document.getElementById(`title-${cid}`).textContent = TITLES[cid];
+    buildChart(cid);
+    initSlider(cid);
+    updateSubtitle(cid);
+    buildLegend(cid);
+  });
+});
+</script>
+</body>
+</html>
